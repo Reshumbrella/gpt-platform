@@ -28,19 +28,21 @@ import Footer from "examples/Footer";
 // Dashboard components
 import "react-chat-elements/dist/main.css";
 import { useState } from "react";
-import { Alert, Select, SvgIcon } from "@mui/material";
+import { Alert, Select } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import IconButton from "@mui/material/IconButton";
 import TranslateIcon from "@material-ui/icons/Translate";
+import HistoryIcon from "@material-ui/icons/History";
 import CachedIcon from "@material-ui/icons/Cached";
 import SyncAltIcon from "@material-ui/icons/SyncAlt";
 import ArrowForwardIosIcon from "@material-ui/icons/ArrowForwardIos";
 import TextField from "@mui/material/TextField";
 import { makeStyles } from "@material-ui/styles";
 import Tooltip from "@mui/material/Tooltip";
-import axios from "axios";
 import Snackbar from "@mui/material/Snackbar";
+import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
+import Menu from "@mui/material/Menu";
 
 const iconStyles = makeStyles({
   root: {
@@ -52,9 +54,51 @@ const iconStyles = makeStyles({
     },
   },
 });
-
+const menuStyles = makeStyles({
+  paper: {
+    color: "black",
+    width: 200,
+    backgroundColor: "#ffffff",
+    boxShadow: "1px 1px 2px 1px #76A9FF",
+    "&:hover": {
+      boxShadow: "2px 2px 4px 2px #76A9FF",
+    },
+  },
+});
+const itemStyles = makeStyles({
+  root: {
+    height: "40px",
+    justifyContent: "center",
+    "&:hover": {
+      background: "linear-gradient(-225deg, #5D9FFF 0%, #B8DCFF 48%, #6BBBFF 100%)",
+      boxShadow: "1px 6px 6px 1px #8EBEFF",
+    },
+  },
+  selected: {
+    background: "linear-gradient(-225deg, #5D9FFF 0%, #B8DCFF 48%, #6BBBFF 100%)",
+    boxShadow: "0px 0px 0px 0px #8EBEFF",
+  },
+});
+const delItemStyles = makeStyles({
+  root: {
+    height: "40px",
+    justifyContent: "center",
+    "&:hover": {
+      color: "white",
+      background: "#FF0A22",
+    },
+  },
+});
+const initialState = {
+  mouseX: null,
+  mouseY: null,
+};
 function AITranslate() {
+  const endpoint = "https://gptplatform.openai.azure.com/";
   const iconClasses = iconStyles();
+  const menuClasses = menuStyles();
+  const itemClasses = itemStyles();
+  const delItemClasses = delItemStyles();
   const language = ["中文（简体）", "英语", "日语", "法语", "俄语"];
   const [origin, setOrigin] = useState("中文（简体）");
   const [translation, setTranslation] = useState("英语");
@@ -63,6 +107,10 @@ function AITranslate() {
   const [open, setOpen] = useState(false);
   const [severity, setSeverity] = useState("error");
   const [warnMsg, setWarnMsg] = useState("");
+  //历史菜单相关
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [selectedIndex, setSelectedIndex] = useState(1);
+  const [state, setState] = useState(initialState);
   const mapping = {
     "中文（简体）": "Chinese",
     英语: "English",
@@ -70,10 +118,20 @@ function AITranslate() {
     法语: "French",
     俄语: "Russian",
   };
-
+  //交互参数
   const temperature = Number(sessionStorage.getItem("temperature"));
   const presence = Number(sessionStorage.getItem("presence"));
   const frequency = Number(sessionStorage.getItem("frequency"));
+  const history = [
+    "History-0",
+    "History-1",
+    "History-2",
+    "History-3",
+    "History-4",
+    "History-5",
+    "History-6",
+    "History-7",
+  ];
 
   const handlesbClose = () => {
     setOpen(false);
@@ -103,18 +161,27 @@ function AITranslate() {
       setSeverity("error");
       return;
     }
-    let res = await axios.post("/translate/", {
-      apikey: sessionStorage.getItem("apikey"),
-      from: mapping[origin],
-      to: mapping[translation],
-      temperature: temperature,
-      presence: presence,
-      frequency: frequency,
-      content: oriContent,
+    let messages = [];
+    messages.push({
+      role: "system",
+      content: "You are a translation expert, highly skilled in language translation work.",
     });
-    if (res.data.state === true) {
-      setTransContent(res.data.translation);
-    }
+    messages.push({
+      role: "user",
+      content: `Translate the following ${mapping[origin]} text to ${mapping[translation]}:${oriContent}`,
+    });
+    console.log(messages);
+    const azureApiKey = sessionStorage.getItem("apikey");
+    const client = new OpenAIClient(endpoint, new AzureKeyCredential(azureApiKey));
+    const deploymentId = "gpt_api";
+    const result = client.getChatCompletions(deploymentId, messages, {
+      temperature: temperature,
+      presencePenalty: presence,
+      frequencyPenalty: frequency,
+    });
+    result.then((res) => {
+      setTransContent(res.choices[0].message.content);
+    });
   };
   const handleExchange = (e) => {
     let tempOption = origin;
@@ -128,6 +195,28 @@ function AITranslate() {
   const handleReset = () => {
     setOriContent("");
     setTransContent("");
+  };
+  const handleHistory = (e) => {
+    setAnchorEl(e.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleItem = (item, index) => {
+    setSelectedIndex(index);
+    setAnchorEl(null);
+  };
+  const handleContext = (e, item) => {
+    e.preventDefault();
+    setState({
+      mouseX: e.clientX - 2,
+      mouseY: e.clientY - 4,
+    });
+  };
+  const handleDelClose = () => {
+    setState(initialState);
   };
 
   return (
@@ -193,7 +282,7 @@ function AITranslate() {
               <ArrowForwardIosIcon style={{ color: "#3b95ef", fontSize: 40 }} />
             </Grid>
             <Grid container height={650} alignItems="center" justifyContent="center">
-              <Grid container height={200} alignItems="center" justifyContent="center">
+              <Grid container height={150} alignItems="center" justifyContent="center">
                 <Tooltip title="Translate text">
                   <IconButton
                     onClick={handleTranslate}
@@ -207,7 +296,7 @@ function AITranslate() {
                   </IconButton>
                 </Tooltip>
               </Grid>
-              <Grid container height={200} alignItems="center" justifyContent="center">
+              <Grid container height={150} alignItems="center" justifyContent="center">
                 <Tooltip title="Exchange text field">
                   <IconButton
                     onClick={handleExchange}
@@ -221,7 +310,7 @@ function AITranslate() {
                   </IconButton>
                 </Tooltip>
               </Grid>
-              <Grid container height={200} alignItems="center" justifyContent="center">
+              <Grid container height={150} alignItems="center" justifyContent="center">
                 <Tooltip title="Reset text field">
                   <IconButton
                     onClick={handleReset}
@@ -234,6 +323,56 @@ function AITranslate() {
                     <CachedIcon style={{ color: "#3b95ef", fontSize: 45 }} />
                   </IconButton>
                 </Tooltip>
+              </Grid>
+              <Grid container height={150} alignItems="center" justifyContent="center">
+                <Tooltip title="Translation history">
+                  <IconButton
+                    onClick={handleHistory}
+                    classes={{
+                      root: iconClasses.root,
+                    }}
+                    color="info"
+                    aria-label="display translation history"
+                  >
+                    <HistoryIcon style={{ color: "#3b95ef", fontSize: 45 }} />
+                  </IconButton>
+                </Tooltip>
+                <Menu
+                  id="history-menu"
+                  varient="menu"
+                  anchorEl={anchorEl}
+                  keepMounted
+                  classes={{
+                    paper: menuClasses.paper,
+                  }}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "center",
+                  }}
+                  transformOrigin={{
+                    vertical: "bottom",
+                    horizontal: "center",
+                  }}
+                >
+                  {history.map((item, index) => {
+                    return (
+                      <MenuItem
+                        key={index}
+                        classes={{
+                          root: itemClasses.root,
+                          selected: itemClasses.selected,
+                        }}
+                        selected={index === selectedIndex}
+                        onClick={() => handleItem(item, index)}
+                        onContextMenu={(e) => handleContext(e, item)}
+                      >
+                        {item}
+                      </MenuItem>
+                    );
+                  })}
+                </Menu>
               </Grid>
             </Grid>
           </Grid>
@@ -304,6 +443,21 @@ function AITranslate() {
           {warnMsg}
         </Alert>
       </Snackbar>
+      <Menu
+        keepMounted
+        open={state.mouseY !== null}
+        onClose={handleDelClose}
+        anchorReference="anchorPosition"
+        anchorPosition={
+          state.mouseY !== null && state.mouseX !== null
+            ? { top: state.mouseY, left: state.mouseX }
+            : undefined
+        }
+      >
+        <MenuItem classes={{ root: delItemClasses.root }} onClick={handleDelClose}>
+          Delete
+        </MenuItem>
+      </Menu>
     </DashboardLayout>
   );
 }

@@ -13,10 +13,10 @@ Coded by www.creative-tim.com
 * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 */
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // react-router components
-import { useLocation, Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 // prop-types is a library for typechecking of props.
 import PropTypes from "prop-types";
@@ -35,23 +35,22 @@ import MDInput from "components/MDInput";
 // Material Dashboard 2 React example components
 import Breadcrumbs from "examples/Breadcrumbs";
 import NotificationItem from "examples/Items/NotificationItem";
-import SignIn from "../../../layouts/authentication/sign-in";
 
 // Custom styles for DashboardNavbar
 import {
   navbar,
   navbarContainer,
-  navbarRow,
   navbarIconButton,
   navbarMobileMenu,
+  navbarRow,
 } from "examples/Navbars/DashboardNavbar/styles";
 
 // Material Dashboard 2 React context
 import {
-  useMaterialUIController,
-  setTransparentNavbar,
   setMiniSidenav,
   setOpenConfigurator,
+  setTransparentNavbar,
+  useMaterialUIController,
 } from "context";
 
 function DashboardNavbar({ absolute, light, isMini }) {
@@ -165,7 +164,7 @@ function DashboardNavbar({ absolute, light, isMini }) {
               >
                 <Icon sx={iconsStyle}>settings</Icon>
               </IconButton>
-              <Link to="../../../layouts/authentication/sign-in">
+              <Link to="/">
                 <IconButton sx={navbarIconButton} size="small" disableRipple>
                   <Icon sx={iconsStyle}>exit_to_app</Icon>
                 </IconButton>

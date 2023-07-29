@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/gptplatform-react.iml" filepath="$PROJECT_DIR$/.idea/gptplatform-react.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/gpt-frontend.iml" filepath="$PROJECT_DIR$/.idea/gpt-frontend.iml" />
     </modules>
   </component>
 </project>

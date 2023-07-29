@@ -37,6 +37,7 @@ import { Alert } from "@mui/material";
 import Snackbar from "@mui/material/Snackbar";
 import MenuItem from "@mui/material/MenuItem";
 import Menu from "@mui/material/Menu";
+import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
 
 const initialState = {
   mouseX: null,
@@ -44,6 +45,7 @@ const initialState = {
 };
 
 function SimpleChat() {
+  const endpoint = "https://gptplatform.openai.azure.com/";
   //snackbar状态
   const [open, setOpen] = useState(false);
   const [severity, setSeverity] = useState("error");
@@ -74,16 +76,18 @@ function SimpleChat() {
 
   useEffect(() => {
     const getChats = () => {
-      let result = axios.get("/simplechat/", {
+      let result = axios.get("/get-simple-chat", {
         params: { email: sessionStorage.getItem("email") },
       });
       result.then((res) => {
-        //console.log(res);
-        if (res.data.simplechat.length !== "") {
-          setMsgList(res.data.simplechat);
-        }
-        if (res.data.sessions.length !== "") {
-          setChats(res.data.sessions);
+        // console.log(res);
+        if (res.data !== "noFile") {
+          if (res.data.chats.length !== 0) {
+            setMsgList(res.data.chats);
+          }
+          if (res.data.sessions.length !== 0) {
+            setChats(res.data.sessions);
+          }
         }
       });
     };
@@ -104,8 +108,8 @@ function SimpleChat() {
         sessions: chats,
         chats: msgList,
       };
-      axios.post("/savesimplechat/", jsonData).then((res) => {
-        //console.log(res.data);
+      axios.post("/save-simple-chat", jsonData).then((res) => {
+        // console.log(res.data);
       });
     }
   }, [currMsg]);
@@ -231,24 +235,45 @@ function SimpleChat() {
     chats[currId].subtitle = subtitle[currId];
     setChats([...chats]);
     setText("");
-    let res = await axios.post("/havesimplechat/", {
-      apikey: sessionStorage.getItem("apikey"),
-      userMsg: text,
+    let messages = [];
+    messages.push({
+      role: "system",
+      content: "You are an AI assistant that helps people find information.",
+    });
+    currMsg.map((msg) => {
+      if (msg["position"] === "right") {
+        messages.push({
+          role: "user",
+          content: msg.text,
+        });
+      } else if (msg["position"] === "left") {
+        messages.push({
+          role: "assistant",
+          content: msg.text,
+        });
+      }
+    });
+    const azureApiKey = sessionStorage.getItem("apikey");
+    const client = new OpenAIClient(endpoint, new AzureKeyCredential(azureApiKey));
+    const deploymentId = "gpt_api";
+    const result = client.getChatCompletions(deploymentId, messages, {
       temperature: temperature,
-      presence: presence,
-      frequency: frequency,
+      presencePenalty: presence,
+      frequencyPenalty: frequency,
     });
-    currMsg.push({
-      position: "left",
-      type: "text",
-      title: "ChatGPT",
-      text: res.data.msg,
+    result.then((res) => {
+      currMsg.push({
+        position: "left",
+        type: "text",
+        title: "ChatGPT",
+        text: res.choices[0].message.content,
+      });
+      setCurrMsg([...currMsg]);
+      subtitle[currId] = res.choices[0].message.content;
+      setSubtitle([...subtitle]);
+      chats[currId].subtitle = subtitle[currId];
+      setChats([...chats]);
     });
-    setCurrMsg([...currMsg]);
-    subtitle[currId] = res.data.msg;
-    setSubtitle([...subtitle]);
-    chats[currId].subtitle = subtitle[currId];
-    setChats([...chats]);
   };
 
   return (

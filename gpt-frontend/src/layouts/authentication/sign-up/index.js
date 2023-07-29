@@ -11,7 +11,7 @@ Coded by www.creative-tim.com
  =========================================================
 
 * The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-*/
+ */
 
 // react-router-dom components
 import { Link, useNavigate } from "react-router-dom";
@@ -114,19 +114,14 @@ function Cover() {
     let ec = emailCheck();
     let ic = infoCheck();
     if (ec && ic) {
-      axios.post("/usersignup/", user).then((res) => {
+      axios.post("/api/auth/sign-up", user).then((res) => {
         setSeverity(res.data.state);
-        setText(res.data.text);
+        setText(res.data.message);
         setOpen(true);
+        console.log(res.data);
         if (res.data.state === "success") {
-          sessionStorage.setItem("username", user.username);
-          sessionStorage.setItem("email", user.email);
-          sessionStorage.setItem("apikey", res.data.apikey);
-          sessionStorage.setItem("temperature", res.data.temperature);
-          sessionStorage.setItem("presence", res.data.presence);
-          sessionStorage.setItem("frequency", res.data.frequency);
           setTimeout(function () {
-            navigate("/simplechat");
+            navigate("/authentication/sign-in");
           }, 3000);
         }
       });
@@ -218,7 +213,7 @@ function Cover() {
                 Already have an account?{" "}
                 <MDTypography
                   component={Link}
-                  to="/authentication/sign-in"
+                  to="/"
                   variant="button"
                   color="info"
                   fontWeight="medium"

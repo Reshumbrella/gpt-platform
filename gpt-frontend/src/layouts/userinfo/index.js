@@ -82,7 +82,8 @@ function UserInfo() {
   const [email, setEmail] = useState(sessionStorage.getItem("email"));
   const [apiKey, setApiKey] = useState(sessionStorage.getItem("apikey"));
   const [isEdit, setIsEdit] = useState(false);
-  const [pwd, setPwd] = useState({ oldpwd: "", newpwd: "" });
+  const [oldPWD, setOldPWD] = useState("");
+  const [newPWD, setNewPWD] = useState("");
   const [chatCount, setChatCount] = useState(0);
   const [msgCount, setMsgCount] = useState(0);
   const [temperature, setTemperature] = useState(Number(sessionStorage.getItem("temperature")));
@@ -96,15 +97,16 @@ function UserInfo() {
 
   const fetchData = async (url) => {
     let res = await axios.post(url, { email: email });
+    // console.log(res.data);
     chartData.labels = res.data.labels;
-    chartData.data = res.data.data;
-    // setChartData([...chartData]);
+    chartData.data = res.data.stats;
+    // console.log(chartData);
     let temp = eval(chartData.data.join("+"));
     setChatCount(chartData.labels.length);
     setMsgCount(temp);
   };
   useEffect(() => {
-    fetchData("/getchartdata/").then((r) => {});
+    fetchData("/get-stat-data").then((r) => {});
   }, []);
 
   const barChart = useMemo(() => {
@@ -133,6 +135,8 @@ function UserInfo() {
   const handleEdit = () => {
     setName(sessionStorage.getItem("username"));
     setApiKey(sessionStorage.getItem("apikey"));
+    setOldPWD("");
+    setNewPWD("");
     setIsEdit(!isEdit);
   };
   const handleConfirm = () => {
@@ -143,21 +147,27 @@ function UserInfo() {
     if (apiKey !== sessionStorage.getItem("apikey")) {
       postjson.apikey = apiKey;
     }
-    if (pwd.oldpwd !== "" && pwd.newpwd !== "") {
-      postjson.oldpwd = pwd.oldpwd;
-      postjson.newpwd = pwd.newpwd;
+    if (oldPWD !== "" && newPWD !== "") {
+      postjson.oldpwd = oldPWD;
+      postjson.newpwd = newPWD;
     }
     // console.log(postjson);
-    axios.post("/useredit/", postjson).then((res) => {
-      if (res.data.state) {
+    axios.post("/update-info", postjson).then((res) => {
+      // console.log(res.data);
+      if (res.data.state === "success") {
         sessionStorage.setItem("username", name);
         sessionStorage.setItem("apikey", apiKey);
-        setWarnMsg("用户信息修改成功!");
+        setWarnMsg(res.data.message);
         setOpen(true);
-        setSeverity("success");
+        setSeverity(res.data.state);
+      } else {
+        setWarnMsg(res.data.message);
+        setOpen(true);
+        setSeverity(res.data.state);
       }
-      // console.log(res.data);
     });
+    setOldPWD("");
+    setNewPWD("");
     setIsEdit(!isEdit);
   };
 
@@ -165,15 +175,18 @@ function UserInfo() {
     sessionStorage.setItem("temperature", String(temperature));
     sessionStorage.setItem("presence", String(presence));
     sessionStorage.setItem("frequency", String(frequency));
-    let res = await axios.post("/saveparams/", {
+    let res = await axios.post("/update-info", {
       email: email,
       temperature: temperature,
       presence: presence,
       frequency: frequency,
     });
-    setWarnMsg("对话参数修改成功!");
-    setOpen(true);
-    setSeverity("success");
+    // console.log(res.data);
+    if (res.data.state === "success") {
+      setWarnMsg("对话参数修改成功!");
+      setOpen(true);
+      setSeverity(res.data.state);
+    }
   };
 
   const handleReset = async () => {
@@ -182,22 +195,27 @@ function UserInfo() {
     setFrequency(0);
     sessionStorage.setItem("temperature", "0");
     sessionStorage.setItem("presence", "0");
-    sessionStorage.setItem("frequency", "{0}");
-    let res = await axios.post("/saveparams/", {
+    sessionStorage.setItem("frequency", "0");
+    let res = await axios.post("/update-info", {
       email: email,
-      temperature: temperature,
-      presence: presence,
-      frequency: frequency,
+      temperature: 0,
+      presence: 0,
+      frequency: 0,
     });
+    // console.log(res.data);
+    if (res.data.state === "success") {
+      setWarnMsg("对话参数已重置!");
+      setOpen(true);
+      setSeverity(res.data.state);
+    }
   };
 
   const handleChange = (e, target) => {
     if (target === "username") setName(e.target.value);
     if (target === "apikey") setApiKey(e.target.value);
-    if (target === "oldpwd") pwd.oldpwd = e.target.value;
-    if (target === "newpwd") pwd.newpwd = e.target.value;
+    if (target === "oldpwd") setOldPWD(e.target.value);
+    if (target === "newpwd") setNewPWD(e.target.value);
     if (target === "temperature") setTemperature(e.target.value);
-
     if (target === "presence") setPresence(e.target.value);
     if (target === "frequency") setFrequency(e.target.value);
   };
@@ -261,15 +279,17 @@ function UserInfo() {
                     id="old-pwd"
                     type="password"
                     label="Old Password"
+                    value={oldPWD}
                     onChange={(e) => handleChange(e, "oldpwd")}
                     style={{ width: "80%", marginTop: 35 }}
                   />
                 </Zoom>
                 <Zoom in={isEdit}>
-                  <MDInput
+                  <TextField
                     id="new-pwd"
                     type="password"
                     label="New Password"
+                    value={newPWD}
                     onChange={(e) => handleChange(e, "newpwd")}
                     style={{ width: "80%", marginTop: 35 }}
                   />
@@ -378,18 +398,18 @@ function UserInfo() {
                   />
                 </MDBox>
               </Grid>
-              <Grid item xs={1} md={1} lg={1}>
-                <Tabs
-                  orientation="vertical"
-                  variant="scrollable"
-                  value="test"
-                  aria-label="Vertical tabs example"
-                  style={{ height: 150, backgroundColor: "#ffffff" }}
-                >
-                  <Tab label="Item One" />
-                  <Tab label="Item Two" />
-                </Tabs>
-              </Grid>
+              {/*<Grid item xs={1} md={1} lg={1}>*/}
+              {/*  <Tabs*/}
+              {/*    orientation="vertical"*/}
+              {/*    variant="scrollable"*/}
+              {/*    value="test"*/}
+              {/*    aria-label="Vertical tabs example"*/}
+              {/*    style={{ height: 150, backgroundColor: "#ffffff" }}*/}
+              {/*  >*/}
+              {/*    <Tab label="Item One" />*/}
+              {/*    <Tab label="Item Two" />*/}
+              {/*  </Tabs>*/}
+              {/*</Grid>*/}
             </Grid>
             <Grid container alignItems="center" justifyContent="center" height={480}>
               <Grid item xs={12} mr={2} lg={5.5} md={5.5}>

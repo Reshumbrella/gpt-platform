@@ -68,21 +68,26 @@ function Basic() {
   };
 
   const handleClick = async () => {
-    let res = await axios.post("/usersignin/", user);
+    let res = await axios.post(
+      "api/auth/login",
+      { username: user.email, password: user.password, remember: rememberMe },
+      {
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+      }
+    );
     // console.log(res.data.text);
     setSeverity(res.data.state);
-    setText(res.data.text);
+    setText(res.data.message);
     setOpen(true);
     if (res.data.state === "success") {
       setTimeout(function () {
-        sessionStorage.setItem("username", res.data.username);
+        sessionStorage.setItem("username", res.data.info.username);
         sessionStorage.setItem("email", user.email);
-        sessionStorage.setItem("apikey", res.data.apikey);
-        sessionStorage.setItem("temperature", res.data.temperature);
-        sessionStorage.setItem("presence", res.data.presence);
-        sessionStorage.setItem("frequency", res.data.frequency);
+        sessionStorage.setItem("apikey", res.data.info.apikey);
+        sessionStorage.setItem("temperature", res.data.info.temperature);
+        sessionStorage.setItem("presence", res.data.info["presence"]);
+        sessionStorage.setItem("frequency", res.data.info.frequency);
         navigate("/simplechat");
-        //window.open("/dashboard/", "_self");
       }, 3000);
     }
   };

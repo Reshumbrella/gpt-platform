@@ -52,8 +52,10 @@ import MDInput from "../../components/MDInput";
 import PropTypes from "prop-types";
 import axios from "axios";
 import Snackbar from "@mui/material/Snackbar";
+import { AzureKeyCredential, OpenAIClient } from "@azure/openai";
 
 function Roleplay() {
+  const endpoint = "https://gptplatform.openai.azure.com/";
   const roleSet = useRef();
   const myref = useRef(null);
   //snackbar状态
@@ -84,21 +86,24 @@ function Roleplay() {
 
   useEffect(() => {
     const getChats = () => {
-      let result = axios.get("/rolechat/", {
+      let result = axios.get("/get-role-chat", {
         params: { email: sessionStorage.getItem("email") },
       });
       result.then((res) => {
-        if (res.data.name.length !== 0) {
-          setRoleName(res.data.name);
-        }
-        if (res.data.info.length !== 0) {
-          setRoleInfo(res.data.info);
-        }
-        if (res.data.roles.length !== 0) {
-          setRoleList(res.data.roles);
-        }
-        if (res.data.msgs.length !== 0) {
-          setMsgList(res.data.msgs);
+        // console.log(res);
+        if (res.data !== "noFile") {
+          if (res.data.name.length !== 0) {
+            setRoleName(res.data.name);
+          }
+          if (res.data.info.length !== 0) {
+            setRoleInfo(res.data.info);
+          }
+          if (res.data.roles.length !== 0) {
+            setRoleList(res.data.roles);
+          }
+          if (res.data.msgs.length !== 0) {
+            setMsgList(res.data.msgs);
+          }
         }
       });
     };
@@ -121,7 +126,9 @@ function Roleplay() {
         roles: roleList,
         msgs: msgList,
       };
-      axios.post("/saverolechat/", jsonData).then((res) => {});
+      axios.post("/save-role-chat", jsonData).then((res) => {
+        // console.log(res.data);
+      });
     }
   }, [currMsg]);
 
@@ -140,8 +147,16 @@ function Roleplay() {
     }
   };
   const editRole = () => {
-    roleSet.current.handleOption("edit");
-    roleSet.current.handleOpen();
+    console.log(currId);
+    if (currId === -1) {
+      setWarnMsg("请创建一个对话或选择一个对话...");
+      setOpen(true);
+      setSeverity("error");
+    } else {
+      console.log(roleInfo);
+      roleSet.current.handleOption("edit");
+      roleSet.current.handleOpen();
+    }
   };
 
   const handleRoleClick = (e) => {
@@ -198,43 +213,45 @@ function Roleplay() {
     subtitle[currId] = msg;
     setSubtitle([...subtitle]);
     roleList[currId].subtitle = subtitle[currId];
-    let textData = [];
-    textData.push({
+    let messages = [];
+    messages.push({
       role: "system",
       content: currInfo,
     });
     currMsg.map((msg) => {
       if (msg["position"] === "right") {
-        textData.push({
+        messages.push({
           role: "user",
           content: msg.text,
         });
       } else if (msg["position"] === "left") {
-        textData.push({
+        messages.push({
           role: "assistant",
           content: msg.text,
         });
       }
     });
-    let res = await axios.post("/haverolechat/", {
-      apikey: sessionStorage.getItem("apikey"),
-      userMsg: textData,
+    const azureApiKey = sessionStorage.getItem("apikey");
+    const client = new OpenAIClient(endpoint, new AzureKeyCredential(azureApiKey));
+    const deploymentId = "gpt_api";
+    const result = client.getChatCompletions(deploymentId, messages, {
       temperature: temperature,
-      presence: presence,
-      frequency: frequency,
+      presencePenalty: presence,
+      frequencyPenalty: frequency,
     });
-    // console.log(res.data);
-    currMsg.push({
-      position: "left",
-      type: "text",
-      title: "ChatGPT",
-      text: res.data.msg,
+    result.then((res) => {
+      currMsg.push({
+        position: "left",
+        type: "text",
+        title: "ChatGPT",
+        text: res.choices[0].message.content,
+      });
+      setCurrMsg([...currMsg]);
+      subtitle[currId] = res.choices[0].message.content;
+      setSubtitle([...subtitle]);
+      roleList[currId].subtitle = subtitle[currId];
+      setRoleList([...roleList]);
     });
-    setCurrMsg([...currMsg]);
-    subtitle[currId] = res.data.msg;
-    setSubtitle([...subtitle]);
-    roleList[currId].subtitle = subtitle[currId];
-    setRoleList([...roleList]);
   };
 
   const roleDelete = () => {
@@ -340,6 +357,8 @@ function Roleplay() {
               </Button>
               <RoleSet
                 rid={currId}
+                cname={currName}
+                cinfo={currInfo}
                 rname={roleName}
                 rinfo={roleInfo}
                 rlist={roleList}
@@ -348,16 +367,21 @@ function Roleplay() {
                 setList={setRoleList}
                 setName={setRoleName}
                 setInfo={setRoleInfo}
+                setCname={setCurrName}
+                setCinfo={setCurrInfo}
                 ref={roleSet}
               ></RoleSet>
             </Grid>
             <Grid container mt={1} mb={-1} height={370}>
-              <ChatList
-                onClick={handleRoleClick}
-                id="rolechat"
-                className="chat-list"
-                dataSource={roleList}
-              />
+              <Grid xs={12} lg={12} md={12}>
+                <ChatList
+                  onClick={handleRoleClick}
+                  id="rolechat"
+                  className="chat-list"
+                  dataSource={roleList}
+                  fullwidth
+                />
+              </Grid>
             </Grid>
             <Grid container height={300} alignItems="center" justifyContent="center">
               <Grid item mt={0} xs={12} md={12} lg={12}>
@@ -455,7 +479,24 @@ export default Roleplay;
 
 //角色设置组件
 const RoleSet = forwardRef(
-  ({ rid, rname, rinfo, rlist, mlist, setMsg, setList, setName, setInfo }, ref) => {
+  (
+    {
+      rid,
+      cname,
+      cinfo,
+      rname,
+      rinfo,
+      rlist,
+      mlist,
+      setMsg,
+      setList,
+      setName,
+      setInfo,
+      setCname,
+      setCinfo,
+    },
+    ref
+  ) => {
     const [open, setOpen] = useState(false);
     const [option, setOption] = useState("add");
     const [localName, setLocalName] = useState("");
@@ -494,8 +535,8 @@ const RoleSet = forwardRef(
         rlist.push({
           id: rlist.length,
           avatar: require("assets/images/chatgpt-icon.png"),
-          title: `GPT-Role`,
-          subtitle: "This is a new roleplay session",
+          title: `${localName}`,
+          subtitle: "This is a new roleplay session,just have a chat now!",
         });
         setList([...rlist]);
         mlist.push({
@@ -513,13 +554,20 @@ const RoleSet = forwardRef(
             role.name = localName;
           }
         });
+        rlist.map((role) => {
+          if (role.id === rid) {
+            role.title = localName;
+          }
+        });
         setName([...rname]);
-        rname.map((role) => {
+        setCname(localName);
+        rinfo.map((role) => {
           if (role.id === rid) {
             role.info = localInfo;
           }
         });
         setInfo([...rinfo]);
+        setCinfo(localInfo);
         setLocalName("");
         setLocalInfo("");
         handleClose();
@@ -571,6 +619,8 @@ const RoleSet = forwardRef(
 );
 RoleSet.propTypes = {
   rid: PropTypes.number,
+  cname: PropTypes.string,
+  cinfo: PropTypes.string,
   rname: PropTypes.array,
   rinfo: PropTypes.array,
   rlist: PropTypes.array,
@@ -579,4 +629,6 @@ RoleSet.propTypes = {
   setList: PropTypes.func,
   setName: PropTypes.func,
   setInfo: PropTypes.func,
+  setCinfo: PropTypes.func,
+  setCname: PropTypes.func,
 };
